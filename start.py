@@ -36,5 +36,20 @@ async def on_voice_state_update(member, before, after):
                 except discord.Forbidden:
                     print(f"エラーで蹴れなかったよ！！")
                 break
+            
+@client.event
+async def on_voice_state_update(member, before, after):
+    # VCに入ったかどうかをチェック
+    if before.channel != after.channel:
+        if after.channel is not None:
+            # 新しいVCのメンバーリストを取得
+            new_channel_members = after.channel.members
+            # 新しいVCに誰もいなかった場合
+            if len(new_channel_members) == 1:
+                # ログ用のチャンネルを取得
+                log_channel = client.get_channel(log_channel_id)
+                if log_channel is not None:
+                    await log_channel.send(f'{member.name}がVCに入りました: {after.channel.name}')
+
 
 client.run(TOKEN)
