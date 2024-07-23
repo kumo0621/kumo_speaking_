@@ -9,6 +9,7 @@ with open('config.yml', 'r') as config_file:
 TOKEN = config["token"]
 VOICE_CHANNEL_IDS = config["voice_channel_ids"]
 BOT_USER_IDS = config["bot_user_ids"]
+log_channel_id = config['log_channel_id']
 
 intents = discord.Intents.default()
 intents.members = True  # メンバー情報を取得するために必要
@@ -36,7 +37,7 @@ async def on_voice_state_update(member, before, after):
                 except discord.Forbidden:
                     print(f"エラーで蹴れなかったよ！！")
                 break
-            
+
 @client.event
 async def on_voice_state_update(member, before, after):
     # VCに入ったかどうかをチェック
@@ -50,6 +51,22 @@ async def on_voice_state_update(member, before, after):
                 log_channel = client.get_channel(log_channel_id)
                 if log_channel is not None:
                     await log_channel.send(f'{member.name}がVCに入りました: {after.channel.name}')
+
+
+@client.event
+async def on_ready():
+    # ボットがログインしたときのイベント
+    logging.info(f'{client.user}としてログインしました')
+
+@client.event
+async def on_disconnect():
+    # ボットが切断されたときのイベント
+    logging.warning('ボットが切断されました！')
+
+@client.event
+async def on_resumed():
+    # ボットが再接続されたときのイベント
+    logging.info('ボットが再接続されました！')
 
 
 client.run(TOKEN)
