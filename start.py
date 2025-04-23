@@ -1,3 +1,4 @@
+import os
 import discord
 from discord.ext import commands
 from discord import app_commands
@@ -6,10 +7,12 @@ import logging
 from datetime import datetime, timedelta, timezone
 
 # 設定ファイルを読み込み
-with open('config.yml', 'r') as config_file:
+base_dir = os.environ.get("APP_BASEDIR", ".")
+config_path = os.path.join(base_dir, "config.yml")
+with open(config_path, 'r') as config_file:
     config = yaml.safe_load(config_file)
 
-TOKEN = config["token"]
+TOKEN = os.environ.get("DISCORD_TOKEN") or config["token"]
 VOICE_CHANNEL_IDS = config["voice_channel_ids"]
 BOT_USER_IDS = config["bot_user_ids"]
 log_channel_id = config['log_channel_id']
