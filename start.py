@@ -3,7 +3,7 @@ from discord.ext import commands
 from discord import app_commands
 import yaml
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 # 設定ファイルを読み込み
 with open('config.yml', 'r') as config_file:
@@ -28,7 +28,7 @@ def is_within_time_range(time_set):
     now = datetime.now().time()
     start_time = datetime.strptime(time_set['start'], "%H:%M").time()
     end_time = datetime.strptime(time_set['end'], "%H:%M").time()
-    
+
     if start_time <= end_time:
         return start_time <= now <= end_time
     else:
@@ -45,20 +45,29 @@ async def on_ready():
 async def on_voice_state_update(member, before, after):
     for channel_id in VOICE_CHANNEL_IDS:
         voice_channel = discord.utils.get(client.get_all_channels(), id=channel_id)
-        if voice_channel:
-            # チャンネル内にBOT_USER_IDSに一致するIDが1つでもいるか確認
-            bot_in_channel = None
-            for bot in voice_channel.members:
-                if bot.id in BOT_USER_IDS:
-                    bot_in_channel = bot
-                    break
-            if bot_in_channel and len(voice_channel.members) == 1:
-                try:
-                    # ボイスチャンネルから切断させる
-                    await bot_in_channel.edit(voice_channel=None)
-                except discord.Forbidden:
-                    print(f"エラーで蹴れなかったよ！！")
-                break
+        if not voice_channel:
+            continue
+
+        # ── 監視対象 Bot がいるか確認 ─────────────────────────
+        bot_in_channel = next(
+            (m for m in voice_channel.members if m.id in BOT_USER_IDS),
+            None
+        )
+
+        # ── Bot しかいない状態なら 60 秒タイムアウト ─────────────
+        if bot_in_channel and len(voice_channel.members) == 1:
+            try:
+                timeout_until = datetime.now(timezone.utc) + timedelta(seconds=60)
+
+                await bot_in_channel.timeout(
+                    timeout_until,                              # ← キーワードを外す
+                    reason="ひとりぼっち VC 自動タイムアウト (60 s)"
+                )
+            except discord.Forbidden:
+                print("タイムアウト権限がありません（Moderate Members が必要）")
+            except discord.HTTPException as e:
+                print(f"タイムアウト失敗: {e}")
+            break  # 対象チャンネルの処理が終わったらループ抜け
 
     if before.channel != after.channel:
         # 新しいVCに入った場合の処理
@@ -84,8 +93,6 @@ async def on_disconnect():
 async def on_resumed():
     # ボットが再接続されたときのイベント
     logging.info('ボットが再接続されました！')
-
-
 
 @discord.app_commands.context_menu(name="通話から切断")
 async def disconnect_from_voice(interaction: discord.Interaction, member: discord.Member):
@@ -118,7 +125,6 @@ async def disconnect_from_voice(interaction: discord.Interaction, member: discor
             await interaction.response.send_message(f"エラーが発生しました: {e}", ephemeral=True)
     else:
         await interaction.response.send_message(f"{member.display_name} は通話に参加していません。", ephemeral=True)
-
 
 # コンテキストメニューコマンドを登録
 client.tree.add_command(disconnect_from_voice)
